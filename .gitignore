@@ -7,21 +7,8 @@ log_from_config/
 __pycache__/
 *.pyc
 # novelty index (generated, large files)
-Paper-KG-Pipeline/output/novelty_index__siliconflow__Qwen_Qwen3-Embedding-8B__184936e8/
+Paper-KG-Pipeline/output/novelty_index__*/
 # recall index (generated, large files)
-Paper-KG-Pipeline/output/recall_index__siliconflow__Qwen_Qwen3-Embedding-8B__184936e8/
+Paper-KG-Pipeline/output/recall_index__*/
 Idea2Paper_系统问题分析与优化建议.md
-
-# Frontend server logs
-frontend/server/logs/
-
-# Frontend web project
-frontend/web/node_modules/
-frontend/web/.vite/
-frontend/web/.env
-frontend/web/.env.local
-frontend/web/.env.*.local
-frontend/web/npm-debug.log*
-frontend/web/yarn-debug.log*
-frontend/web/yarn-error.log*
-frontend/web/pnpm-debug.log*
+viewer相关.md
