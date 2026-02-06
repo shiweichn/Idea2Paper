@@ -203,9 +203,10 @@ const RealStrategy = {
                 idea,
                 config: {
                    config_overrides: {
-                       SILICONFLOW_API_KEY: config.siliconFlowApiKey,
+                       LLM_API_KEY: config.siliconFlowApiKey,
                        LLM_API_URL: config.llmUrl,
                        LLM_MODEL: config.llmModel,
+                       EMBEDDING_API_KEY: config.embeddingApiKey,
                        EMBEDDING_API_URL: config.embeddingUrl,
                        EMBEDDING_MODEL: config.embeddingModel,
 
