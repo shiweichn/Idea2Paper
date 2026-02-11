@@ -73,6 +73,14 @@ const T = {
     llm_api_url: 'LLM API URL (Base URL)',
     llm_api_url_ph: 'e.g. https://api.openai.com/v1',
     llm_api_url_hint: 'Base URL only, without /chat/completions',
+    embedding_api_url: 'Embedding API URL',
+    embedding_api_url_ph: 'https://api.openai.com/v1/embeddings',
+    embedding_api_url_hint: 'Leave blank to use local sentence-transformers model',
+    embedding_model: 'Embedding Model',
+    embedding_model_ph: 'text-embedding-3-large',
+    embedding_api_key: 'Embedding API Key',
+    embedding_api_key_ph: 'sk-...',
+    embedding_api_key_hint: 'Leave blank to use LLM API Key',
     validate: 'Validate Dataset',
     validating: 'Validating...',
     start: 'Start Build',
@@ -111,6 +119,14 @@ const T = {
     llm_api_url: 'LLM API URL（Base URL）',
     llm_api_url_ph: '例如 https://api.openai.com/v1',
     llm_api_url_hint: '仅填写 Base URL，不含 /chat/completions',
+    embedding_api_url: 'Embedding API URL',
+    embedding_api_url_ph: 'https://api.openai.com/v1/embeddings',
+    embedding_api_url_hint: '留空则使用本地 sentence-transformers 模型',
+    embedding_model: 'Embedding 模型',
+    embedding_model_ph: 'text-embedding-3-large',
+    embedding_api_key: 'Embedding API Key',
+    embedding_api_key_ph: 'sk-...',
+    embedding_api_key_hint: '留空则使用 LLM API Key',
     validate: '验证数据集',
     validating: '验证中...',
     start: '开始构建',
@@ -159,15 +175,15 @@ async function apiDelete(url: string) {
 
 const KG_CONFIG_KEY = 'kg_builder_config';
 
-function loadKgConfig(): { apiKey: string; llmModel: string; llmApiUrl: string; datasetName: string } {
+function loadKgConfig(): { apiKey: string; llmModel: string; llmApiUrl: string; datasetName: string; embeddingApiUrl: string; embeddingModel: string; embeddingApiKey: string } {
   try {
     const raw = localStorage.getItem(KG_CONFIG_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) return { embeddingApiUrl: '', embeddingModel: '', embeddingApiKey: '', ...JSON.parse(raw) };
   } catch { /* ignore */ }
-  return { apiKey: '', llmModel: 'gpt-4o', llmApiUrl: '', datasetName: '' };
+  return { apiKey: '', llmModel: 'gpt-4o', llmApiUrl: '', datasetName: '', embeddingApiUrl: '', embeddingModel: '', embeddingApiKey: '' };
 }
 
-function saveKgConfig(cfg: { apiKey: string; llmModel: string; llmApiUrl: string; datasetName: string }) {
+function saveKgConfig(cfg: { apiKey: string; llmModel: string; llmApiUrl: string; datasetName: string; embeddingApiUrl: string; embeddingModel: string; embeddingApiKey: string }) {
   try { localStorage.setItem(KG_CONFIG_KEY, JSON.stringify(cfg)); } catch { /* ignore */ }
 }
 
@@ -190,11 +206,14 @@ export const KGBuilderPage: React.FC<Props> = ({ lang, config: appConfig }) => {
   const [apiKey, setApiKey] = useState(saved.apiKey);
   const [llmModel, setLlmModel] = useState(saved.llmModel);
   const [llmApiUrl, setLlmApiUrl] = useState(saved.llmApiUrl);
+  const [embeddingApiUrl, setEmbeddingApiUrl] = useState(saved.embeddingApiUrl);
+  const [embeddingModel, setEmbeddingModel] = useState(saved.embeddingModel);
+  const [embeddingApiKey, setEmbeddingApiKey] = useState(saved.embeddingApiKey);
 
   /* persist config to localStorage on change */
   useEffect(() => {
-    saveKgConfig({ apiKey, llmModel, llmApiUrl, datasetName });
-  }, [apiKey, llmModel, llmApiUrl, datasetName]);
+    saveKgConfig({ apiKey, llmModel, llmApiUrl, datasetName, embeddingApiUrl, embeddingModel, embeddingApiKey });
+  }, [apiKey, llmModel, llmApiUrl, datasetName, embeddingApiUrl, embeddingModel, embeddingApiKey]);
 
   /* computed dataset path (read-only) */
   const datasetPath = datasetName
@@ -281,7 +300,7 @@ export const KGBuilderPage: React.FC<Props> = ({ lang, config: appConfig }) => {
       const res = await apiPost('/api/kg/build', {
         dataset_path: datasetPath,
         dataset_name: name,
-        config: { llm_api_key: apiKey, llm_model: llmModel, llm_api_url: llmApiUrl },
+        config: { llm_api_key: apiKey, llm_model: llmModel, llm_api_url: llmApiUrl, embedding_api_url: embeddingApiUrl, embedding_model: embeddingModel, embedding_api_key: embeddingApiKey },
       });
       if (!res.ok) { setBuildErr(res.error); return; }
       setBuildStatus(res);
@@ -409,6 +428,47 @@ export const KGBuilderPage: React.FC<Props> = ({ lang, config: appConfig }) => {
               <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">{t.llm_api_url_hint}</p>
             </div>
 
+            {/* Embedding API URL */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 dark:text-slate-300 mb-1.5">{t.embedding_api_url}</label>
+              <input
+                type="text"
+                value={embeddingApiUrl}
+                onChange={e => setEmbeddingApiUrl(e.target.value)}
+                placeholder={t.embedding_api_url_ph}
+                disabled={!!isBuilding}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-violet-200 dark:focus:ring-violet-900 focus:border-violet-400 outline-none transition-all disabled:opacity-50"
+              />
+              <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">{t.embedding_api_url_hint}</p>
+            </div>
+
+            {/* Embedding Model */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 dark:text-slate-300 mb-1.5">{t.embedding_model}</label>
+              <input
+                type="text"
+                value={embeddingModel}
+                onChange={e => setEmbeddingModel(e.target.value)}
+                placeholder={t.embedding_model_ph}
+                disabled={!!isBuilding}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-violet-200 dark:focus:ring-violet-900 focus:border-violet-400 outline-none transition-all disabled:opacity-50"
+              />
+            </div>
+
+            {/* Embedding API Key */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 dark:text-slate-300 mb-1.5">{t.embedding_api_key}</label>
+              <input
+                type="password"
+                value={embeddingApiKey}
+                onChange={e => setEmbeddingApiKey(e.target.value)}
+                placeholder={t.embedding_api_key_ph}
+                disabled={!!isBuilding}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-violet-200 dark:focus:ring-violet-900 focus:border-violet-400 outline-none transition-all disabled:opacity-50"
+              />
+              <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">{t.embedding_api_key_hint}</p>
+            </div>
+
             {/* Validate */}
             <button
               onClick={handleValidate}
@@ -445,7 +505,7 @@ export const KGBuilderPage: React.FC<Props> = ({ lang, config: appConfig }) => {
             {!isBuilding ? (
               <button
                 onClick={handleStart}
-                disabled={!estimate || !datasetName}
+                disabled={!datasetName}
                 className="w-full px-6 py-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <PlayCircle size={20} /> {t.start}

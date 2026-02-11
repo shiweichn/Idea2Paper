@@ -89,6 +89,8 @@ class KGBuildManager:
         llm_model: str = "gpt-4o",
         llm_api_url: str = "",
         embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
+        embedding_api_url: str = "",
+        embedding_api_key: str = "",
     ):
         self.build_id = build_id
         self.dataset_name = dataset_name
@@ -102,6 +104,8 @@ class KGBuildManager:
         self.llm_model = llm_model
         self.llm_api_url = llm_api_url
         self.embedding_model = embedding_model
+        self.embedding_api_url = embedding_api_url
+        self.embedding_api_key = embedding_api_key
 
         # state
         self.status: str = BuildStatus.STARTING
@@ -226,7 +230,6 @@ class KGBuildManager:
             cmd += [
                 "--input", str(patterns_file),
                 "--outdir", self.output_dir,
-                "--sbert_model", self.embedding_model,
                 "--hdb_min_cluster_size", str(min_cluster),
                 "--hdb_min_samples", str(min_samples),
                 "--llm_name",
@@ -234,6 +237,19 @@ class KGBuildManager:
             ]
             if self.llm_api_url:
                 cmd += ["--llm_api_base", self.llm_api_url]
+            # Embedding backend: always use API to avoid local HF model downloads.
+            if not self.embedding_api_url:
+                raise RuntimeError(
+                    "Embedding API URL is required. "
+                    "Please configure it in the build settings."
+                )
+            embed_key = self.embedding_api_key or self.llm_api_key
+            cmd += [
+                "--embed_backend", "api",
+                "--embed_api_url", self.embedding_api_url,
+                "--embed_api_key", embed_key,
+                "--embed_model", self.embedding_model,
+            ]
 
         try:
             self._process = subprocess.Popen(
@@ -328,6 +344,8 @@ def start_build(
     llm_model: str = "gpt-4o",
     llm_api_url: str = "",
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
+    embedding_api_url: str = "",
+    embedding_api_key: str = "",
 ) -> tuple[bool, str, Optional[KGBuildManager]]:
     """Start a new KG build.  Returns (ok, message, manager)."""
     global _current_build
@@ -350,6 +368,8 @@ def start_build(
             llm_model=llm_model,
             llm_api_url=llm_api_url,
             embedding_model=embedding_model,
+            embedding_api_url=embedding_api_url,
+            embedding_api_key=embedding_api_key,
         )
         _current_build = mgr
         mgr.start()

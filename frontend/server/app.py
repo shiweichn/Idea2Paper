@@ -742,6 +742,7 @@ class Handler(BaseHTTPRequestHandler):
             return _json_response(self, {"ok": False, "error": "missing dataset_name"}, status=400)
 
         llm_key = cfg.get("llm_api_key") or os.environ.get("SILICONFLOW_API_KEY") or os.environ.get("OPENAI_API_KEY") or ""
+        embedding_api_key = cfg.get("embedding_api_key") or ""
 
         ok, msg, mgr = kgm.start_build(
             dataset_name=dataset_name,
@@ -750,7 +751,9 @@ class Handler(BaseHTTPRequestHandler):
             llm_api_key=llm_key,
             llm_model=cfg.get("llm_model", "gpt-4o"),
             llm_api_url=cfg.get("llm_api_url", ""),
-            embedding_model=cfg.get("embedding_model", "sentence-transformers/all-MiniLM-L6-v2"),
+            embedding_model=cfg.get("embedding_model", "text-embedding-3-large"),
+            embedding_api_url=cfg.get("embedding_api_url", ""),
+            embedding_api_key=embedding_api_key,
         )
         if not ok:
             return _json_response(self, {"ok": False, "error": msg}, status=400)

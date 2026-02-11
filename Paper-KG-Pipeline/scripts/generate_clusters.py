@@ -204,6 +204,53 @@ def embed_texts_sbert(texts: List[str], model_name: str, batch_size: int = 64) -
     return emb.astype(np.float32)
 
 
+def embed_texts_api(
+    texts: List[str],
+    api_url: str,
+    api_key: str,
+    model: str,
+    batch_size: int = 64,
+    timeout: int = 120,
+) -> np.ndarray:
+    """Call an OpenAI-compatible /v1/embeddings endpoint in batches.
+
+    Returns L2-normalized float32 numpy array (N, dim).
+    """
+    import requests
+
+    try:
+        from tqdm import tqdm
+    except ImportError:
+        tqdm = None
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    all_embeddings: List[List[float]] = []
+    n_batches = (len(texts) + batch_size - 1) // batch_size
+    iterator = range(0, len(texts), batch_size)
+    if tqdm is not None:
+        iterator = tqdm(iterator, total=n_batches, desc="Embedding (API)")
+
+    for start in iterator:
+        batch = texts[start : start + batch_size]
+        payload = {"model": model, "input": batch}
+        resp = requests.post(api_url, headers=headers, json=payload, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+        embs = [item["embedding"] for item in data.get("data", [])]
+        if len(embs) != len(batch):
+            raise ValueError(
+                f"Embedding batch size mismatch: got {len(embs)}, expected {len(batch)}"
+            )
+        all_embeddings.extend(embs)
+
+    X = np.array(all_embeddings, dtype=np.float32)
+    return l2_normalize(X)
+
+
 # ----------------------------
 # Clustering
 # ----------------------------
@@ -529,9 +576,12 @@ def main():
     )
 
     # Embedding
-    ap.add_argument("--embed_backend", choices=["sbert"], default="sbert")
+    ap.add_argument("--embed_backend", choices=["sbert", "api"], default="sbert")
     ap.add_argument("--sbert_model", default="sentence-transformers/all-MiniLM-L6-v2")
     ap.add_argument("--embed_batch_size", type=int, default=64)
+    ap.add_argument("--embed_api_url", default="", help="Embedding API endpoint (OpenAI-compatible)")
+    ap.add_argument("--embed_api_key", default="", help="Embedding API key")
+    ap.add_argument("--embed_model", default="text-embedding-3-large", help="Embedding model name for API")
 
     # UMAP/HDBSCAN
     ap.add_argument("--umap_neighbors", type=int, default=15)
@@ -575,10 +625,12 @@ def main():
     texts = [build_text(p, args.template) for p in patterns]
 
     # Embed
-    if args.embed_backend == "sbert":
+    if args.embed_backend == "api":
+        X = embed_texts_api(texts, args.embed_api_url, args.embed_api_key, args.embed_model, args.embed_batch_size)
+    elif args.embed_backend == "sbert":
         X = embed_texts_sbert(texts, args.sbert_model, args.embed_batch_size)
     else:
-        raise RuntimeError("Unsupported embed_backend")
+        raise RuntimeError(f"Unsupported embed_backend: {args.embed_backend}")
 
     # Ensure normalized (SBERT normalize_embeddings=True already, but keep safe)
     Xn = l2_normalize(X)
